@@ -18,11 +18,11 @@ def validate_password():
     return password
 
 
-def validate_path():
+def validate_path(choice):
     file = None
     valid_path = False
     while valid_path == False:
-        path = input("Enter a file path to encrypt, make sure the is not surrounded by quotations: ")
+        path = input(f"Enter a file path to {choice}, make sure the is not surrounded by quotations: ")
         if os.path.exists(path):
             file = open(path, 'rb')
             valid_path = True
@@ -30,8 +30,8 @@ def validate_path():
             print("File not found, try again or exit")
     return file
 
-def save_encrypted_file(encrypted_data, file):
-    output_filename = file.name + '.enc'
+def save_encrypted_file(encrypted_data, file, encrypted_file_name=None):
+    output_filename = (file.name + '.enc') if encrypted_file_name is None else encrypted_file_name
     is_dir_valid = False
 
     while not is_dir_valid:
@@ -59,40 +59,88 @@ def save_encrypted_file(encrypted_data, file):
             except Exception as e:
                 print(f"An unexpected error occurred: {e}. Please try again.")
 
-if __name__ == '__main__':
-    #get and validate password
+def decrypt_file(file_path, key):
+    file = open(file_path, 'rb') #read file
+    encrypted_data = file.read()  #read encrypted data
+    decrypted_data = crypt.decrypt_string(key, encrypted_data)
+
+    return decrypted_data
+
+
+def prompt_for_encryption():
+    # get and validate password
     password = validate_password()
+    # get and validate path
+    file = validate_path(choice='encrypted')
 
-    #get and validate path
-    file = validate_path()
+    # encrypt password and retrieve key and token from response
+    encryption_tuple = crypt.encrypt_string(password)
 
-
-    #generate salt
-    salt = secrets.token_hex(16)
-    salted_password = password + (seperator + salt)
-
-    #encrypt password and retrieve key and token from response
-    encrypted = crypt.encrypt_string(salted_password)
-
+    encrypted_password = encryption_tuple[1]
     if not os.path.exists('key.key'):
-        enc_key = encrypted[0]
+        encryption_key = encryption_tuple[0]
     else:
-        enc_key = open('key.key', 'rb').read()
+        encryption_key = open('key.key', 'rb').read()
 
-
-    enc_token = encrypted[1]
-
-    #dec_pass = crypt.decrypt_string(enc_key, enc_token)
-    #unsalted_pass = crypt.unsalt_data(dec_pass, salt)
-
-    #open file and encrypt data
+    # open file and encrypt data
     original_data = file.read()
-    encrypted_data = crypt.encrypt_string(original_data, key=enc_key)
+    encrypted_data = crypt.encrypt_string(original_data, key=encryption_key)
+
+    user_output = encryption_key.decode('utf-8') + seperator + encrypted_password.decode('utf-8')
 
     file.close()
 
     save_encrypted_file(encrypted_data, file)
 
+    print("Encryption successful, here is a key to decrypt the file, do not lose this or decryption will not be possible: \n ", user_output, "\n")
+
+def prompt_for_decryption():
+    # get and validate password
+    check_password = validate_password()
+
+    input_key = input("Enter the key used to encrypt the file: ")
+
+    split_key = input_key.split(seperator)
+    key = split_key[1]
+    enc_password = split_key[0]
+
+    password = crypt.decrypt_string(key.decode('utf-8'), enc_password)
+
+    if (check_password != password):
+        print("Incorrect password, decryption aborted.")
+        return (
+            "Incorrect password, decryption aborted."
+        )
+
+    # get and validate path
+    file = validate_path(choice='decrypted')
 
 
-    #encrypt file
+    if file.name.split('.')[-1] == 'enc':
+        file = file.name[:-4]
+    extension = input("enter the extension to be used for the decrypted file:")
+
+    data = decrypt_file(file, key)
+
+    # Write the decrypted data to a new file
+    if extension[0] != '.':
+        extension = '.' + extension
+
+    with open(file+extension, "wb") as new_img:  # Use 'with' statement for proper file handling
+        new_img.write(data)
+    print("Decryption successful. Decrypted image saved to 'new_img.png'.")
+
+
+
+
+if __name__ == '__main__':
+
+    choice = input("Enter 'e' to encrypt a file or 'd' to decrypt a file: ")
+    if choice == 'e':
+        prompt_for_encryption()
+    elif choice == 'd':
+        prompt_for_decryption()
+    else:
+        print("Invalid choice. Please enter 'e' or 'd'.")
+
+    #crypt.decrypt_string("")

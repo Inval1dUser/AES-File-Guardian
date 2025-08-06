@@ -30,10 +30,9 @@ def encrypt_string(data, key=None):
 
     f = Fernet(key)
 
-    return_token = None
     return_token = f.encrypt(data_in_bytes)
 
-    return (return_key, return_token)
+    return (return_key, return_token) #key, encrypted_data
 
 def decrypt_string(key, token):
     # Ensure the key is in bytes format for Fernet
@@ -65,3 +64,4 @@ def unsalt_data(data, salt):
         else:
             return False # Salt is invalid
     return data[0:pos-1]
+
